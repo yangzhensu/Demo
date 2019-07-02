@@ -42,15 +42,15 @@ public class NewsAdapter extends RecyclerView.Adapter<NewsAdapter.NewsViewHolder
         return newsList.size();
     }
 
-    public void addNews(List<NewsItem> newsItems) {
-        newsList.addAll(newsItems);
-        notifyDataSetChanged();
-    }
-
-    public void updateNews(List<NewsItem> newsItems) {
-        newsList.clear();
-        newsList.addAll(newsItems);
-        notifyDataSetChanged();
+    public void updateNews(List<NewsItem> newsItems, boolean more) {
+        if (more) {
+            newsList.addAll(newsItems);
+            notifyItemRangeInserted(newsList.size(), newsItems.size());
+        } else {
+            newsList.clear();
+            newsList.addAll(newsItems);
+            notifyDataSetChanged();
+        }
     }
 
     static class NewsViewHolder extends RecyclerView.ViewHolder implements View.OnClickListener {
@@ -67,13 +67,19 @@ public class NewsAdapter extends RecyclerView.Adapter<NewsAdapter.NewsViewHolder
         }
 
         void bind(NewsItem item) {
-            Glide.with(itemView)
-                    .load(item.mainImage.originalUrl)
-                    .into(mainImage);
-            title.setText(item.title);
-            date.setText(StringUtils.parseDate(item.publishedAt));
-            itemView.setTag(item);
-            itemView.setOnClickListener(this);
+            if (item != null) {
+                if (item.mainImage != null) {
+                    Glide.with(itemView)
+                            .load(item.mainImage.originalUrl)
+                            .into(mainImage);
+                }
+                title.setText(item.title);
+                date.setText(StringUtils.parseDate(item.publishedAt));
+                itemView.setTag(item);
+                itemView.setOnClickListener(this);
+            } else {
+                itemView.setOnClickListener(null);
+            }
         }
 
         @Override

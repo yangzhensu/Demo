@@ -1,6 +1,8 @@
 package com.zhensu.demo.view;
 
 
+import android.arch.lifecycle.Observer;
+import android.arch.lifecycle.ViewModelProviders;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
@@ -15,17 +17,10 @@ import android.view.ViewGroup;
 import com.zhensu.demo.R;
 import com.zhensu.demo.adapter.NewsAdapter;
 import com.zhensu.demo.model.NewsItem;
-import com.zhensu.demo.network.NetworkManager;
+import com.zhensu.demo.viewmodel.NewsViewModel;
 
 import java.util.List;
 
-import io.reactivex.android.schedulers.AndroidSchedulers;
-import io.reactivex.disposables.CompositeDisposable;
-import io.reactivex.schedulers.Schedulers;
-
-/**
- * A simple {@link Fragment} subclass.
- */
 public class NewsListFragment extends Fragment {
 
     private static final String TAG = NewsListFragment.class.getSimpleName();
@@ -33,8 +28,10 @@ public class NewsListFragment extends Fragment {
     private RecyclerView mNewsList;
     private NewsAdapter mAdapter;
     private LinearLayoutManager mLayoutManager;
-    private CompositeDisposable disposable;
     private boolean loading;
+    private NewsViewModel mNewsViewModel;
+    private Observer<List<NewsItem>> mNewsObserver;
+    private boolean mMore;
 
     public NewsListFragment() {
         loading = true;
@@ -60,13 +57,13 @@ public class NewsListFragment extends Fragment {
         mNewsList.addOnScrollListener(new RecyclerView.OnScrollListener() {
             @Override
             public void onScrolled(@NonNull RecyclerView recyclerView, int dx, int dy) {
-                if(dy > 0) {
+                if (dy > 0) {
                     int visibleItemCount = mLayoutManager.getChildCount();
                     int totalItemCount = mLayoutManager.getItemCount();
                     int pastVisibleItems = mLayoutManager.findFirstVisibleItemPosition();
 
                     if (loading) {
-                        if ( (visibleItemCount + pastVisibleItems) >= totalItemCount) {
+                        if ((visibleItemCount + pastVisibleItems) >= totalItemCount) {
                             loading = false;
                             Log.v("...", "Last Item Wow !");
                             getNews(true);
@@ -80,33 +77,20 @@ public class NewsListFragment extends Fragment {
         mNewsList.setLayoutManager(mLayoutManager);
         mAdapter = new NewsAdapter();
         mNewsList.setAdapter(mAdapter);
+        mNewsViewModel = ViewModelProviders.of(this).get(NewsViewModel.class);
+        mNewsObserver = newsItems -> {
+            if (newsItems != null) {
+                mAdapter.updateNews(newsItems, mMore);
+            }
+        };
 
-        disposable = new CompositeDisposable();
         getNews(false);
     }
 
     private void getNews(boolean more) {
-        disposable.add(NetworkManager.getInstance()
-                .getNews()
-                .subscribeOn(Schedulers.io())
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribe(newsResponse -> {
-                    if (newsResponse != null && newsResponse.items != null && newsResponse.items.list != null) {
-                        List<NewsItem> newsItems = newsResponse.items.list;
-                        if (more) {
-                            mAdapter.addNews(newsItems);
-                        } else {
-                            mAdapter.updateNews(newsItems);
-                        }
-                    }
-                }, throwable -> {
-                    Log.e(TAG, "getNews: ", throwable);
-                }));
+        mMore = more;
+        mNewsViewModel.newsLiveData.observe(this, mNewsObserver);
+        mNewsViewModel.getNews();
     }
 
-    @Override
-    public void onDestroy() {
-        super.onDestroy();
-        disposable.clear();
-    }
 }
